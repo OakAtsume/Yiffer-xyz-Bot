@@ -1,0 +1,22 @@
+{
+    "blocked": [
+      {
+        "ip": "",
+        "reason": "",
+        "until": "Unix time",
+        "at": "Unix time"
+      }
+    ],
+    "suspicious": [
+      {
+        "ip": "",
+        "reasons": [
+          {
+            "reason": "",
+            "at": "Unix time"
+          }
+        ],
+        "at": "Unix time First suspicious activity"
+      }
+    ]
+  }
