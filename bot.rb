@@ -33,7 +33,7 @@ class YifferBot
         :type => formatType(comic["tag"]),
         :tags => comic["keywords"],
         :pages => comic["numberOfPages"],
-        :created => comic["created"],
+        :updated => comic["updated"],
       }
     )
     # Write
@@ -57,18 +57,28 @@ class YifferBot
 
     # Calculate the number of pages per thread
     pages_per_thread = (pages.to_f / num_threads).ceil
+    
+    # calculate the estimated time
+    estimated_time = (pages_per_thread / 2) * num_threads
+    # Format into hours/minutes/seconds
+    hours = estimated_time / 3600
+    minutes = (estimated_time % 3600) / 60
+    seconds = estimated_time % 60
+    puts("Estimated time: #{hours}:#{minutes}:#{seconds}")
+
 
     # Spawn a thread for each page
     num_threads.times do |i|
       start_page = i * pages_per_thread + 1
       end_page = [start_page + pages_per_thread - 1, pages].min
-
+      id = i + 1
       threads << Thread.new(start_page, end_page) do |start_page, end_page|
+        localId = id
         (start_page..end_page).each do |page|
           # Download page logic here
           page_url = retreatPage(comicName, page)
           downloadBot(page_url, File.join(folder, "#{formatNum(page)}.jpg"))
-          puts "[#{name}] Downloaded page #{page}/#{pages}"
+          puts("(#{name}) Downloaded (#{page}/#{pages}) : #{((page.to_f / pages) * 100).round(2)}% : Thread #{localId}")
         end
       end
     end
@@ -130,25 +140,14 @@ class YifferBot
     response = http.request(request)
     File.write(path, response.body)
   end
-
-  def encode(str)
-    # Check if it contains non ascii characters
-    # account quotes
-    if str.include?("'") || str.include?('"')
-      str.gsub!(/'/, "%27")
-      str.gsub!(/"/, "%22")
-    end
-
-    if str.ascii_only?
-      return str.gsub(/ /, "%20")
-    end
-    non_ascii = str.scan(/[^\x00-\x7F]/)
-    non_ascii.each do |char|
-      str = str.gsub(char, CGI::escape(char))
-    end
-    return str.gsub(/ /, "%20")
+  def lastUpdateFor(comicName)
+    # Return last update for comic
+    comic = retreatComic(comicName)
+    return comic["updated"]
   end
-
+  def encode(str)
+    return URI.encode_uri_component(str)
+  end
   def formatNum(num)
     return num.to_s.rjust(3, "0")
   end
@@ -156,20 +155,22 @@ class YifferBot
 end
 
 bot = YifferBot.new("comics/")
-
 # Pages
-pages = 23
-
+pages = 100 # 100 pages
 # Download comics
 pages.times do |i|
   collection = bot.retreatCollection(i + 1)
   collection["comics"].each do |comic|
     # Check if comic is already downloaded
     if File.directory?(File.join(bot.path, comic["name"]))
-        puts "Skipping #{comic["name"]}"
+      # Check if comic is updated
+      if bot.lastUpdateFor(comic["name"]) == comic["updated"]
+        puts("Skipped #{comic["name"]} : Already downloaded and No updates")
         next
+      end
     end
-    puts "Downloading #{comic}"
+
+    puts('> Downloading comic: ' + comic["name"])
     bot.downloadComic(comic["name"])
   end
 end
